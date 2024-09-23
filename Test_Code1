@@ -1,0 +1,85 @@
+#include <iostream>
+#include <vector>
+#include <string>
+
+class Book {
+private:
+    std::string title;
+    std::string author;
+    bool isAvailable;
+
+public:
+    Book(std::string title, std::string author) : title(title), author(author), isAvailable(true) {}
+
+    void borrowBook() {
+        if (isAvailable) {
+            isAvailable = false;
+            std::cout << "Book borrowed: " << title << std::endl;
+        } else {
+            std::cout << "Book not available!" << std::endl;
+        }
+    }
+
+    void returnBook() {
+        isAvailable = true;
+        std::cout << "Book returned: " << title << std::endl;
+    }
+
+    std::string getTitle() const { return title; }
+    bool available() const { return isAvailable; }
+};
+
+class Member {
+private:
+    std::string name;
+
+public:
+    Member(std::string name) : name(name) {}
+
+    void borrow(Book &book) {
+        book.borrowBook();
+    }
+
+    void returnBook(Book &book) {
+        book.returnBook();
+    }
+
+    std::string getName() const { return name; }
+};
+
+class Library {
+private:
+    std::vector<Book> books;
+
+public:
+    void addBook(Book book) {
+        books.push_back(book);
+    }
+
+    Book* findBook(std::string title) {
+        for (auto &book : books) {
+            if (book.getTitle() == title && book.available()) {
+                return &book;
+            }
+        }
+        return nullptr;
+    }
+};
+
+int main() {
+    Library library;
+    library.addBook(Book("The Catcher in the Rye", "J.D. Salinger"));
+    library.addBook(Book("To Kill a Mockingbird", "Harper Lee"));
+
+    Member alice("Alice");
+
+    Book *book = library.findBook("The Catcher in the Rye");
+    if (book) {
+        alice.borrow(*book);
+        alice.returnBook(*book);
+    } else {
+        std::cout << "Book not found or unavailable!" << std::endl;
+    }
+
+    return 0;
+}
