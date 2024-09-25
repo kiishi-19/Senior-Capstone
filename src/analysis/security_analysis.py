@@ -1,0 +1,1 @@
+# Contains security rules for vulnerability analysis
