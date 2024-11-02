@@ -1,0 +1,18 @@
+#!/usr/bin/env bpftrace
+
+/* Trace open system calls and include timestamps */
+
+tracepoint:syscalls:sys_enter_open,
+tracepoint:syscalls:sys_enter_openat
+{
+    // Print the timestamp (in human-readable format), accessed filename along with process and user IDs
+    printf("%s accessed by PID %d (UID: %d) at %s\n", str(args->filename), pid, uid, strftime("%Y-%m-%d %H:>
+}
+
+/* Additional system call to capture the file close event, if needed */
+tracepoint:syscalls:sys_enter_close
+{
+    printf("File descriptor %d closed by PID %d at %s\n", args->fd, pid, strftime("%Y-%m-%d %H:%M:%S", nsec>
+}
+
+
