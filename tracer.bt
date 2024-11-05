@@ -1,0 +1,64 @@
+#!/usr/bin/bpftrace
+
+// File System Events
+tracepoint:syscalls:sys_enter_openat,
+tracepoint:syscalls:sys_enter_read,
+tracepoint:syscalls:sys_enter_write,
+tracepoint:syscalls:sys_enter_unlink,
+tracepoint:syscalls:sys_enter_chmod,
+tracepoint:syscalls:sys_enter_chown
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// Process Control Events
+tracepoint:syscalls:sys_enter_execve,
+tracepoint:syscalls:sys_enter_fork,
+tracepoint:syscalls:sys_enter_clone,
+tracepoint:syscalls:sys_enter_kill,
+tracepoint:syscalls:sys_enter_exit_group
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// Network Operations
+tracepoint:syscalls:sys_enter_socket,
+tracepoint:syscalls:sys_enter_connect,
+tracepoint:syscalls:sys_enter_bind,
+tracepoint:syscalls:sys_enter_listen,
+tracepoint:syscalls:sys_enter_accept
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// Security-Sensitive Syscalls
+tracepoint:syscalls:sys_enter_getuid,
+tracepoint:syscalls:sys_enter_setuid,
+tracepoint:syscalls:sys_enter_sethostname,
+tracepoint:syscalls:sys_enter_mount,
+tracepoint:syscalls:sys_enter_umount
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// Scheduler Events
+tracepoint:sched:sched_process_fork,
+tracepoint:sched:sched_process_exec,
+tracepoint:sched:sched_process_exit
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// Kernel Module Events
+tracepoint:module:module_load,
+tracepoint:module:module_free
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
+// CPU Frequency Events (using custom BPF trace if needed)
+tracepoint:power:cpu_frequency
+/comm != "bpftrace" && comm != "tracer.bt" && comm != "tcpconnect.py" && comm != "dddos.py"/ {
+    printf("%llu|%s|%d|%s\n", nsecs, probe, pid, comm);
+}
+
