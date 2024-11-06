@@ -2,8 +2,9 @@
 
 # Logging output file
 OUTPUT_LOG="tracer_output.log"
-# Start tracer.bt in background
-bpftrace tracer.bt > $OUTPUT_LOG 2>&1 & 
+
+# Start tracer.bt with a timeout of 1 minute in the background
+timeout 60 bpftrace tracer.bt > $OUTPUT_LOG 2>&1 &
 BPFTRACE_PID=$!
 
 # Give bpftrace some time to start up
