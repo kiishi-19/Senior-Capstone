@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+enum ProbeType {
+    UNKNOWN = 0;
+    SYS_ENTER_OPENAT = 1;
+    SYS_ENTER_READ = 2;
+    SYS_ENTER_WRITE = 3;
+    SYS_ENTER_UNLINK = 4;
+    SYS_ENTER_CHMOD = 5;
+    SYS_ENTER_CHOWN = 6;
+    SYS_ENTER_EXECVE = 7;
+    SYS_ENTER_FORK = 8;
+    SYS_ENTER_CLONE = 9;
+    SYS_ENTER_KILL = 10;
+    SYS_ENTER_EXIT_GROUP = 11;
+    SYS_ENTER_SOCKET = 12;
+    SYS_ENTER_CONNECT = 13;
+    SYS_ENTER_BIND = 14;
+    SYS_ENTER_LISTEN = 15;
+    SYS_ENTER_ACCEPT = 16;
+    SYS_ENTER_GETUID = 17;
+    SYS_ENTER_SETUID = 18;
+    SYS_ENTER_SETHOSTNAME = 19;
+    SYS_ENTER_MOUNT = 20;
+    SYS_ENTER_UMOUNT = 21;
+    SCHED_PROCESS_FORK = 22;
+    SCHED_PROCESS_EXEC = 23;
+    SCHED_PROCESS_EXIT = 24;
+    MODULE_LOAD = 25;
+    MODULE_FREE = 26;
+    CPU_FREQUENCY = 27;
+}
+
+message SyscallEvent {
+    uint64 timestamp = 1;
+    ProbeType probe = 2;
+    int32 pid = 3;
+    string comm = 4;
+}
