@@ -1,0 +1,1 @@
+uv run ML/train_autoencoder.py scaled_features.pkl --epochs 1 --hidden_dims 2 --bottleneck_dim 1 --activation sigmoid 
