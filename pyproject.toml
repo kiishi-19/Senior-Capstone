@@ -5,10 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "fastparquet>=2024.11.0",
     "joblib>=1.4.2",
     "matplotlib>=3.9.2",
     "networkx>=3.4.2",
     "pandas>=2.2.3",
+    "pyarrow>=18.0.0",
+    "pytorch-lightning>=2.4.0",
     "scikit-learn>=1.5.2",
+    "torch>=2.5.1",
+    "torchaudio>=2.5.1",
+    "torchvision>=0.20.1",
     "tqdm>=4.67.0",
 ]
