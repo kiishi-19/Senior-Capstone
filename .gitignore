@@ -24,3 +24,8 @@ Thumbs.db
 # IDE configuration files (optional)
 .vscode/
 .idea/
+checkpoints/
+*.ckpt
+*.pth   
+
+
