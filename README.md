@@ -1,5 +1,5 @@
 import tkinter as tk  # Tkinter is used for creating the graphical user interface (GUI)
-from tkinter import ttk  # ttk provides themed widgets for a more modern look in Tkinter
+from tkinter import ttk  # ttk provides a couple of themed widgets for a more modern look in Tkinter
 import psutil  # psutil library is used to retrieve system metrics
 import threading  # threading allows the monitoring process to run in the background
 import time  # time is used to control the update frequency of the metrics
@@ -12,23 +12,23 @@ class SystemMonitorApp:
         self.root.geometry("500x400")  # Set the initial size of the window
         self.root.configure(bg="#2d2d2d")  # Dark gray background for a modern look
 
-        # Define fonts and colors for the text and labels
+        # Defines the fonts and colors for the text and labels
         self.title_font = ("Arial", 16, "bold")  # Font for the main title
         self.label_font = ("Arial", 12, "bold")  # Font for metric labels
         self.text_color = "#ffffff"  # White color for text to improve visibility
         self.highlight_color = "#4caf50"  # Light green color to highlight high metric values
 
-        # Flag to control the monitoring thread (True for active, False for stop)
+        # Flags and allows for control the monitoring thread (True for active, False for stop)
         self.monitoring = False
 
-        # Create the title at the top left
+        # Creates the title at the top left
         self.create_title()
         
-        # Create UI elements like labels and buttons
+        # Creates UI elements like labels and buttons
         self.create_widgets()
     
     def create_title(self):
-        # Title label positioned at the top left corner
+        # Title label is positioned at the top left corner
         title_label = tk.Label(self.root, text="CyberDawgs - Incident Management", font=self.title_font, fg=self.text_color, bg="#2d2d2d")
         title_label.place(x=10, y=10)  # Place the title at coordinates (10,10)
 
@@ -57,11 +57,11 @@ class SystemMonitorApp:
         self.connection_label = ttk.Label(self.label_frame, text="Active Connections: ", font=self.label_font, foreground=self.text_color, background="#2d2d2d")
         self.connection_label.pack(pady=5)
 
-        # Start Monitoring button with green background
+        # Starts the Monitoring button with green background
         self.start_button = tk.Button(self.root, text="Start Monitoring", command=self.start_monitoring, font=("Arial", 10), bg="#4caf50", fg="white", padx=10, pady=5)
         self.start_button.pack(side="left", padx=20, pady=20)  # Position the button on the left with padding
         
-        # Stop Monitoring button with red background
+        # Stops the Monitoring button with red background
         self.stop_button = tk.Button(self.root, text="Stop Monitoring", command=self.stop_monitoring, font=("Arial", 10), bg="#f44336", fg="white", padx=10, pady=5)
         self.stop_button.pack(side="right", padx=20, pady=20)  # Position the button on the right with padding
     
@@ -80,25 +80,25 @@ class SystemMonitorApp:
     def update_metrics(self):
         # Continuously update metrics while monitoring is active
         while self.monitoring:
-            # Retrieve CPU usage percentage
+            # Retrieves the CPU usage percentage
             cpu_usage = psutil.cpu_percent(interval=1)
             
             # Retrieve memory usage percentage
             memory_info = psutil.virtual_memory()
             memory_usage = memory_info.percent
             
-            # Retrieve disk usage percentage
+            # Retrieve the disk usage percentage
             disk_usage = psutil.disk_usage('/').percent
             
-            # Retrieve network I/O statistics (sent and received bytes)
+            # Retrieves the network I/O statistics (sent and received bytes)
             net_io = psutil.net_io_counters()
             network_usage = f"{net_io.bytes_sent / (1024**2):.2f} MB / {net_io.bytes_recv / (1024**2):.2f} MB"  # Convert bytes to MB
             
-            # Count active network connections in 'ESTABLISHED' state
+            # Counts active network connections in 'ESTABLISHED' state
             connections = psutil.net_connections()
             active_connections = sum(1 for conn in connections if conn.status == 'ESTABLISHED')
 
-            # Update labels with the metrics and apply highlight color if usage exceeds 50%
+            # Updates the labels with the metrics and apply highlight color if usage exceeds 50%
             self.cpu_label.config(text=f"CPU Usage: {cpu_usage}%", foreground=self.highlight_color if cpu_usage > 50 else self.text_color)
             self.memory_label.config(text=f"Memory Usage: {memory_usage}%", foreground=self.highlight_color if memory_usage > 50 else self.text_color)
             self.disk_label.config(text=f"Disk Usage: {disk_usage}%", foreground=self.highlight_color if disk_usage > 50 else self.text_color)
