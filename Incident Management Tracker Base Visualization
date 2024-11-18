@@ -1,0 +1,160 @@
+import dash 
+from dash import dcc, html
+from dash.dependencies import Input, Output
+import psutil
+import plotly.graph_objs as go
+from datetime import datetime
+from collections import deque
+import random
+import signal
+import sys
+
+# Initialize the Dash app
+app = dash.Dash(__name__)
+app.title = "Incident Tracking Management"
+
+# Enable or disable simulation mode
+SIMULATION_MODE = True  # Set to True to activate simulation mode
+
+# Set up data storage for live updates
+max_data_points = 50
+timestamps = deque(maxlen=max_data_points)
+cpu_data = deque(maxlen=max_data_points)
+memory_data = deque(maxlen=max_data_points)
+disk_data = deque(maxlen=max_data_points)
+network_data = deque(maxlen=max_data_points)
+connection_data = deque(maxlen=max_data_points)
+
+# Define layout with a light theme and modern styling
+app.layout = html.Div(
+    style={'backgroundColor': '#D0EFFF', 'color': '#FFFFFF', 'padding': '10px', 'width': '100%', 'height': '100vh'},
+    children=[
+        html.H1("Incident Tracking Management", style={'textAlign': 'center', 'color': '#002B5B'}),
+        
+        # Alert message display
+        html.Div(id="alert-message", style={'textAlign': 'center', 'color': 'red', 'fontSize': 18}),
+        
+        # Interval component for triggering real-time updates every second
+        dcc.Interval(id="interval-component", interval=1*1000, n_intervals=0),
+        
+        # Row 1 - CPU and Memory graphs
+        html.Div([
+            dcc.Graph(id="cpu-usage"),
+            dcc.Graph(id="memory-usage")
+        ], style={'display': 'flex', 'justify-content': 'space-between', 'padding': '10px'}),
+
+        # Row 2 - Disk, Network, and Connections graphs
+        html.Div([
+            dcc.Graph(id="disk-usage"),
+            dcc.Graph(id="network-usage", style={'margin-left': '20px', 'margin-right': '20px'}),
+            dcc.Graph(id="connection-usage")
+        ], style={'display': 'flex', 'justify-content': 'space-between', 'padding': '10px'})
+    ]
+)
+
+# Function to check anomalies based on static thresholds
+def check_anomalies(cpu, memory, disk, network, connections):
+    alerts = []
+    if cpu > 85:
+        alerts.append("High CPU Usage")
+    if memory > 85:
+        alerts.append("High Memory Usage")
+    if disk > 90:
+        alerts.append("High Disk Usage")
+    if network > 1e8:  # Example threshold for network usage
+        alerts.append("High Network Traffic")
+    if connections > 50:
+        alerts.append("High Number of Active Connections")
+    return " | ".join(alerts) if alerts else "System operating within normal parameters"
+
+# Callback function for updating graphs and alert message in real-time
+@app.callback(
+    [Output("cpu-usage", "figure"),
+     Output("memory-usage", "figure"),
+     Output("disk-usage", "figure"),
+     Output("network-usage", "figure"),
+     Output("connection-usage", "figure"),
+     Output("alert-message", "children")],
+    [Input("interval-component", "n_intervals")]
+)
+def update_metrics(n):
+    # Collect system metrics
+    if SIMULATION_MODE:
+        # Simulated values with random fluctuation
+        cpu = 85 + random.randint(-5, 5)
+        memory = 85 + random.randint(-5, 5)
+        disk = 90 + random.randint(-5, 5)
+        network = 1e8 + random.randint(0, int(1e7))
+        connections = 50 + random.randint(-5, 5)
+    else:
+        # Actual values when simulation mode is off
+        cpu = psutil.cpu_percent()
+        memory = psutil.virtual_memory().percent
+        disk = psutil.disk_usage('/').percent
+        network = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
+        connections = len([conn for conn in psutil.net_connections() if conn.status == 'ESTABLISHED'])
+
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    # Update data for real-time graphing
+    cpu_data.append(cpu)
+    memory_data.append(memory)
+    disk_data.append(disk)
+    network_data.append(network)
+    connection_data.append(connections)
+    timestamps.append(timestamp)
+
+    # Check for anomalies and generate alert messages
+    alert_text = check_anomalies(cpu, memory, disk, network, connections)
+
+    # Define layout for graphs with bright labels and titles for visibility
+    layout = go.Layout(
+        template="plotly_dark",
+        margin=dict(l=30, r=10, t=30, b=30),
+        font=dict(color='#FFFFFF'),
+        paper_bgcolor='#111111',  # Dark background color
+        plot_bgcolor='#111111',  # Dark plot area color
+        xaxis=dict(title="Time", showgrid=False, title_font=dict(color='white')),
+        yaxis=dict(showgrid=False, title_font=dict(color='white'))
+    )
+
+    # Create figures for each metric
+    cpu_fig = go.Figure(
+        [go.Scatter(x=list(timestamps), y=list(cpu_data), mode="lines+markers", line=dict(color="orange"))], layout=layout
+    )
+    cpu_fig.update_layout(title="CPU Usage (%)", yaxis_title="CPU (%)", title_font=dict(color="white"))
+
+    memory_fig = go.Figure(
+        [go.Scatter(x=list(timestamps), y=list(memory_data), mode="lines+markers", line=dict(color="green"))], layout=layout
+    )
+    memory_fig.update_layout(title="Memory Usage (%)", yaxis_title="Memory (%)", title_font=dict(color="white"))
+
+    disk_fig = go.Figure(
+        [go.Scatter(x=list(timestamps), y=list(disk_data), mode="lines+markers", line=dict(color="blue"))], layout=layout
+    )
+    disk_fig.update_layout(title="Disk Usage (%)", yaxis_title="Disk (%)", title_font=dict(color="white"))
+
+    network_fig = go.Figure(
+        [go.Scatter(x=list(timestamps), y=list(network_data), mode="lines+markers", line=dict(color="purple"))], layout=layout
+    )
+    network_fig.update_layout(title="Network Usage (Bytes)", yaxis_title="Bytes", title_font=dict(color="white"))
+
+    connection_fig = go.Figure(
+        [go.Scatter(x=list(timestamps), y=list(connection_data), mode="lines+markers", line=dict(color="red"))], layout=layout
+    )
+    connection_fig.update_layout(title="Active Connections", yaxis_title="Connections", title_font=dict(color="white"))
+
+    # Return all figures and the alert message for updating the dashboard
+    return cpu_fig, memory_fig, disk_fig, network_fig, connection_fig, alert_text
+
+# Define a function that will handle termination
+def signal_handler(sig, frame):
+    print("Process terminated by user.")
+    sys.exit(0)  # Exit the program
+
+# Register the signal handler for Ctrl+C (SIGINT)
+signal.signal(signal.SIGINT, signal_handler)
+
+# Run the Dash app
+if __name__ == "__main__":
+    app.run_server(debug=True)
