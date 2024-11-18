@@ -6,10 +6,10 @@ import time  # time is used to control the update frequency of the metrics
 
 class SystemMonitorApp:
     def __init__(self, root):
-        # Initialize the main window with a title and background color
+        # Initializes the main window with a title and background color
         self.root = root
         self.root.title("CyberDawgs - Incident Management")  # Set the title of the window
-        self.root.geometry("500x400")  # Set the initial size of the window
+        self.root.geometry("500x400")  # Sets the initial size of the window
         self.root.configure(bg="#2d2d2d")  # Dark gray background for a modern look
 
         # Defines the fonts and colors for the text and labels
