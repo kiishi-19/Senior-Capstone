@@ -8,6 +8,9 @@ import argparse
 import os
 import logging
 from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
+from glob import glob
+
 
 # Setup logging
 logging.basicConfig(filename='output/inference_autoencoder.log', level=logging.INFO,
