@@ -9,7 +9,7 @@ import random
 import signal
 import sys
 
-# Initialize the Dash app
+# Initializes the Dash app
 app = dash.Dash(__name__)
 app.title = "Incident Tracking Management"
 
