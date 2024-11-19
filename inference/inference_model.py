@@ -1,5 +1,3 @@
-# inference_autoencoder_with_confidence.py
-
 import torch
 import torch.nn as nn
 import pandas as pd
@@ -10,7 +8,6 @@ import logging
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
 from glob import glob
-
 
 # Setup logging
 logging.basicConfig(filename='output/inference_autoencoder.log', level=logging.INFO,
@@ -61,13 +58,8 @@ def load_model(model_path, input_dim, hidden_dims, bottleneck_dim, activation_fn
     model.eval()
     return model
 
-def calculate_anomaly_confidence(mse_scores, threshold=None):
-    """Convert MSE scores to a 0-100 confidence score scale based on the threshold."""
-    max_score = mse_scores.max()
-    confidence_scores = (mse_scores / max_score) * 100
-    return confidence_scores
-
-def run_inference(models, data_loader, confidence_threshold=90, thresholding_enabled=False, device='cpu'):
+def run_inference(models, data_loader, baseline_threshold=81.71176, device='cpu'):
+    """Run inference and flag anomalies based on the baseline MSE threshold."""
     all_scores = []
     for model in models:
         model.to(device)
@@ -79,27 +71,22 @@ def run_inference(models, data_loader, confidence_threshold=90, thresholding_ena
                 batch = batch.to(device)
                 reconstructed = model(batch)
                 mse_loss = nn.MSELoss(reduction='none')(reconstructed, batch).mean(dim=1)
-                confidence_scores = calculate_anomaly_confidence(mse_loss)  # Convert MSE to confidence
 
-                if thresholding_enabled:
-                    anomalies = confidence_scores > confidence_threshold  # Flag if confidence is above threshold
-                    scores.extend(zip(mse_loss.cpu().numpy(), confidence_scores.cpu().numpy(), anomalies.cpu().numpy()))
-                else:
-                    scores.extend(zip(mse_loss.cpu().numpy(), confidence_scores.cpu().numpy()))
+                # Flag anomalies based on the baseline threshold
+                anomalies = mse_loss > baseline_threshold
+                scores.extend(zip(mse_loss.cpu().numpy(), anomalies.cpu().numpy()))
 
         all_scores.append(scores)
     return all_scores
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run inference with confidence thresholding on saved autoencoder models.")
+    parser = argparse.ArgumentParser(description="Run inference based on baseline threshold on saved autoencoder models.")
     parser.add_argument("inference_data_dir", help="Path to the directory containing scaled inference .pkl files.")
     parser.add_argument("--model_paths", nargs='+', required=True, help="List of paths to saved model files for each fold.")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for inference.")
     parser.add_argument("--hidden_dims", nargs='+', type=int, default=[2], help="List of hidden layer sizes used in model.")
     parser.add_argument("--bottleneck_dim", type=int, default=1, help="Size of the bottleneck layer used in model.")
     parser.add_argument("--activation", choices=["sigmoid", "relu"], default="sigmoid", help="Activation function to use.")
-    parser.add_argument("--confidence_threshold", type=float, default=90.0, help="Confidence threshold for anomaly detection.")
-    parser.add_argument("--thresholding_enabled", action='store_true', help="Enable thresholding for anomaly detection.")
     parser.add_argument("--device", default="cpu", help="Device to run inference on (e.g., 'cpu' or 'cuda').")
     args = parser.parse_args()
 
@@ -125,10 +112,9 @@ if __name__ == "__main__":
 
             # Run inference and collect scores
             all_scores = run_inference(
-                models, 
-                data_loader, 
-                confidence_threshold=args.confidence_threshold, 
-                thresholding_enabled=args.thresholding_enabled, 
+                models,
+                data_loader,
+                baseline_threshold=81.71176,  # Use the baseline threshold for anomaly detection
                 device=args.device
             )
 
@@ -139,8 +125,8 @@ if __name__ == "__main__":
                 print(f"Anomaly scores for {pkl_file} model fold {i+1} saved to {output_path}")
                 logging.info(f"Anomaly scores for {pkl_file} model fold {i+1} saved to {output_path}")
 
-                if args.thresholding_enabled:
-                    num_anomalous = sum(1 for _, _, is_anomalous in scores if is_anomalous)
-                    anomaly_percentage = (num_anomalous / len(scores)) * 100
-                    print(f"Thresholding enabled. Anomaly confidence threshold: {args.confidence_threshold}%. Detected anomalies: {anomaly_percentage:.2f}%")
-                    logging.info(f"Thresholding enabled. Anomaly confidence threshold: {args.confidence_threshold}%. Detected anomalies: {anomaly_percentage:.2f}%")
+                # Calculate anomaly percentage
+                num_anomalous = sum(1 for _, is_anomalous in scores if is_anomalous)
+                anomaly_percentage = (num_anomalous / len(scores)) * 100
+                print(f"Baseline threshold: {81.71176}. Detected anomalies: {anomaly_percentage:.2f}%")
+                logging.info(f"Baseline threshold: {81.71176}. Detected anomalies: {anomaly_percentage:.2f}%")
