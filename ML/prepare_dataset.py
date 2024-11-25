@@ -1,6 +1,6 @@
 from joblib import Parallel, delayed
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import joblib
 import os
 from glob import glob
@@ -43,12 +43,6 @@ def transform_and_save(file, feature_names, scaler, output_dir, chunk_size):
             scaled_chunk = scaler.transform(chunk)
             scaled_df = pd.DataFrame(scaled_chunk, columns=feature_names)
 
-            # Log mean and std for each column to confirm scaling
-            means = scaled_df.mean().round(4)
-            std_devs = scaled_df.std().round(4)
-            logging.info(f"File: {file}, Mean values after scaling:\n{means}")
-            logging.info(f"File: {file}, Std deviation after scaling:\n{std_devs}")
-
             # Save scaled data
             scaled_df.to_csv(output_file, index=False, mode='w' if first_chunk else 'a', header=first_chunk)
             first_chunk = False
@@ -75,16 +69,16 @@ def prepare_dataset(features_dir, scaler_file='output/scaler.pkl', output_dir='o
     
     # Set feature names as allowed features
     feature_names = ALLOWED_FEATURES
-    scaler = StandardScaler()
+    scaler = MinMaxScaler(feature_range=(0, 1))  # MinMax scaling for range [0, 1]
     
     # Step 1: Fit the scaler on numeric columns of the allowed features
     for file in csv_files:
         for chunk in pd.read_csv(file, chunksize=chunk_size):
             # Ensure required features are present and fill missing features
             chunk = ensure_features(chunk)
-            scaler.partial_fit(chunk)
+            scaler.partial_fit(chunk)  # Update MinMaxScaler with the current chunk
     
-    joblib.dump(scaler, scaler_file)
+    joblib.dump(scaler, scaler_file)  # Save the fitted scaler
     
     # Step 2: Parallelize the data scaling process
     Parallel(n_jobs=n_jobs)(delayed(transform_and_save)(file, feature_names, scaler, output_dir, chunk_size) for file in csv_files)

@@ -7,7 +7,7 @@ wheels/
 *.egg-info
 *.scap
 *.csv
-*.pkl
+
 *.png
 *.dot
 data/
@@ -27,6 +27,6 @@ Thumbs.db
 .idea/
 checkpoints/
 *.ckpt
-*.pth   
+
 
 
