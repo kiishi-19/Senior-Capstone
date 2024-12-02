@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Create necessary directories
-mkdir -p /home/ubuntu/GHIDS2/Senior-Capstone/output/features
-mkdir -p /home/ubuntu/GHIDS2/Senior-Capstone/output/models
+#mkdir -p /home/ubuntu/GHIDS2/Senior-Capstone/output/features
+#mkdir -p /home/ubuntu/GHIDS2/Senior-Capstone/output/models
 
 # Process SCAP files
 #echo "Step 1: Processing SCAP files..."
@@ -12,17 +12,17 @@ mkdir -p /home/ubuntu/GHIDS2/Senior-Capstone/output/models
     #--num_cores 4
 
 # Prepare dataset
-echo "Step 2: Preparing dataset..."
-uv run ML/prepare_dataset.py \
-    /home/ubuntu/GHIDS2/Senior-Capstone/output/features \
-    --scaler_file /home/ubuntu/GHIDS2/Senior-Capstone/output/scaler.pkl \
-    --output_dir /home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features
+#echo "Step 2: Preparing dataset..."
+##uv run ML/prepare_dataset.py \
+    #/home/ubuntu/GHIDS2/Senior-Capstone/output/features \
+    #--scaler_file /home/ubuntu/GHIDS2/Senior-Capstone/output/scaler.pkl \
+    #--output_dir /home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features
 
 # Concatenate CSV files
-echo "Step 3: Concatenating CSV files..."
-uv run ML/concatenate_csv.py \
-    /home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features \
-    /home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features.pkl
+#echo "Step 3: Concatenating CSV files..."
+#uv run ML/concatenate_csv.py \
+    #/home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features \
+    #/home/ubuntu/GHIDS2/Senior-Capstone/output/scaled_features.pkl
 
 # Train autoencoder
 echo "Step 4: Training autoencoder..."

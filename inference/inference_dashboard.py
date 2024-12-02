@@ -19,23 +19,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", handle
 st.title("SCAP Inference Dashboard")
 st.markdown("""
 Upload `.scap` files, process them, scale features, and run anomaly detection using pre-trained models.
-Required known syscalls, arguments, and scaler files are hardcoded for simplicity.
+Required known syscalls, arguments, and scaler files are loaded relative to the project directory.
 """)
 
-# Hardcoded paths
-KNOWN_SYSCALLS_PATH = "/home/ubuntu/GHIDS2/Senior-Capstone/output/features/known_syscalls.pkl"
-KNOWN_ARGUMENTS_PATH = "/home/ubuntu/GHIDS2/Senior-Capstone/output/features/known_arguments.pkl"
-SCALER_PATH = "/home/ubuntu/GHIDS2/Senior-Capstone/output/scaler.pkl"
+# Relative paths
+KNOWN_SYSCALLS_PATH = project_root / "output/features/known_syscalls.pkl"
+KNOWN_ARGUMENTS_PATH = project_root / "output/features/known_arguments.pkl"
+SCALER_PATH = project_root / "output/scaler.pkl"
 MODEL_PATHS = [
-    "/home/ubuntu/GHIDS2/Senior-Capstone/output/autoencoder_model_fold1.pth",
-    "/home/ubuntu/GHIDS2/Senior-Capstone/output/autoencoder_model_fold2.pth",
-    "/home/ubuntu/GHIDS2/Senior-Capstone/output/autoencoder_model_fold3.pth",
-    "/home/ubuntu/GHIDS2/Senior-Capstone/output/autoencoder_model_fold4.pth",
+    project_root / "output/models/autoencoder_model_fold1.pth",
+    project_root / "output/models/autoencoder_model_fold2.pth",
+    project_root / "output/models/autoencoder_model_fold3.pth",
+    project_root / "output/models/autoencoder_model_fold4.pth",
 ]
-OUTPUT_DIR = "/home/ubuntu/GHIDS2/Senior-Capstone/output/inference_results"
+OUTPUT_DIR = project_root / "output/inference_results"
 
 # Create necessary directories
-Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # File Upload Section: Only SCAP files
 st.header("Upload SCAP Files")
@@ -51,7 +51,7 @@ if st.button("Run"):
             st.write("Processing uploaded SCAP files...")
             scap_paths = []
             for scap_file in scap_files:
-                scap_path = Path(OUTPUT_DIR) / scap_file.name
+                scap_path = OUTPUT_DIR / scap_file.name
                 with open(scap_path, "wb") as f:
                     f.write(scap_file.getbuffer())
                 scap_paths.append(scap_path)
@@ -78,7 +78,7 @@ if st.button("Run"):
 
             # Run anomaly detection
             st.write("Running anomaly detection...")
-            feature_dim = pd.read_pickle(list(Path(OUTPUT_DIR).glob("*.pkl"))[0]).shape[1]
+            feature_dim = pd.read_pickle(list(OUTPUT_DIR.glob("*.pkl"))[0]).shape[1]
             models = [
                 load_model(
                     model_path=model_path,
@@ -90,13 +90,13 @@ if st.button("Run"):
                 for model_path in MODEL_PATHS
             ]
 
-            for pkl_file in Path(OUTPUT_DIR).glob("*.pkl"):
+            for pkl_file in OUTPUT_DIR.glob("*.pkl"):
                 dataset = InferenceDataset(pkl_file)
                 loader = DataLoader(dataset, batch_size=64, shuffle=False)
                 all_scores = run_inference(models, loader, baseline_threshold=81.71176, device="cuda")
 
                 for idx, scores in enumerate(all_scores, 1):
-                    output_file = Path(OUTPUT_DIR) / f"{pkl_file.stem}_fold{idx}_scores.npy"
+                    output_file = OUTPUT_DIR / f"{pkl_file.stem}_fold{idx}_scores.npy"
                     np.save(output_file, scores)
                     st.write(f"Saved anomaly scores for {pkl_file.name}, Model Fold {idx}: {output_file}")
                     st.dataframe(scores[:10])  # Display the first 10 scores

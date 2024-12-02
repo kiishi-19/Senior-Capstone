@@ -67,7 +67,7 @@ def load_model(model_path, input_dim, hidden_dims, bottleneck_dim, activation_fn
     model.eval()
     return model
 
-def run_inference(models, data_loader, baseline_threshold=81.71176, device='cpu'):
+def run_inference(models, data_loader, baseline_threshold=7.5, device='cpu'):
     """Run inference and flag anomalies based on the baseline MSE threshold."""
     all_scores = []
     for model in models:
@@ -182,7 +182,7 @@ if __name__ == "__main__":
             all_scores = run_inference(
                 models,
                 data_loader,
-                baseline_threshold=81.71176,  # Use the baseline threshold for anomaly detection
+                baseline_threshold=7.5,  # Use the baseline threshold for anomaly detection
                 device=args.device
             )
 
@@ -192,4 +192,4 @@ if __name__ == "__main__":
                 output_file = os.path.join(args.inference_data_dir, f"{os.path.basename(pkl_file)}_fold{model_idx}_scores.npy")
                 np.save(output_file, scores_array)
                 logging.info(f"Anomaly scores for {os.path.basename(pkl_file)} model fold {model_idx} saved to {output_file}")
-                process_anomaly_scores(scores_array, 81.71176, pkl_file)
+                process_anomaly_scores(scores_array, 7.5, pkl_file)
