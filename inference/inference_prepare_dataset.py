@@ -1,7 +1,7 @@
 # prepare_inference_data.py
 
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 import joblib
 import os
 from glob import glob
@@ -73,9 +73,9 @@ def prepare_inference_data(features_dir, scaler_file='output/scaler.pkl', output
         logging.error(f"No CSV files found in directory: {features_dir}")
         return
     
-    # Load the pre-trained scaler
+    # Load the pre-trained MinMaxScaler
     scaler = joblib.load(scaler_file)
-    logging.info("Loaded pre-trained scaler.")
+    logging.info("Loaded pre-trained MinMaxScaler.")
 
     # Set feature names as allowed features
     feature_names = ALLOWED_FEATURES

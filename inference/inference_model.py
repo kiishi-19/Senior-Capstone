@@ -14,14 +14,19 @@ logging.basicConfig(filename='output/inference_autoencoder.log', level=logging.I
                     format='%(asctime)s %(message)s')
 
 class Autoencoder(pl.LightningModule):
-    def __init__(self, input_dim, hidden_dims=[2], bottleneck_dim=1, activation_fn=nn.Sigmoid):
+    def __init__(self, input_dim, hidden_dims=[2], bottleneck_dim=1, activation_fn=nn.Sigmoid,
+                 dropout_prob=0.2, learning_rate=1e-4):
         super(Autoencoder, self).__init__()
 
         # Encoder
         encoder_layers = []
         prev_dim = input_dim
         for h_dim in hidden_dims:
-            encoder_layers.extend([nn.Linear(prev_dim, h_dim), activation_fn()])
+            encoder_layers.extend([
+                nn.Linear(prev_dim, h_dim),
+                activation_fn(),
+                nn.Dropout(dropout_prob),
+            ])
             prev_dim = h_dim
         encoder_layers.append(nn.Linear(prev_dim, bottleneck_dim))
         encoder_layers.append(activation_fn())
@@ -31,7 +36,11 @@ class Autoencoder(pl.LightningModule):
         decoder_layers = []
         prev_dim = bottleneck_dim
         for h_dim in reversed(hidden_dims):
-            decoder_layers.extend([nn.Linear(prev_dim, h_dim), activation_fn()])
+            decoder_layers.extend([
+                nn.Linear(prev_dim, h_dim),
+                activation_fn(),
+                nn.Dropout(dropout_prob),
+            ])
             prev_dim = h_dim
         decoder_layers.append(nn.Linear(prev_dim, input_dim))
         decoder_layers.append(activation_fn())
@@ -79,15 +88,74 @@ def run_inference(models, data_loader, baseline_threshold=81.71176, device='cpu'
         all_scores.append(scores)
     return all_scores
 
+def process_anomaly_scores(scores, threshold, file_name):
+    # Convert scores to numpy array if it's not already
+    scores = np.array(scores)
+    
+    logging.info(f"\nAnalyzing scores for {file_name}:")
+    logging.info(f"Score statistics:")
+    logging.info(f"- Min score: {np.min(scores):.4f}")
+    logging.info(f"- Max score: {np.max(scores):.4f}")
+    logging.info(f"- Mean score: {np.mean(scores):.4f}")
+    logging.info(f"- Median score: {np.median(scores):.4f}")
+    logging.info(f"- Std dev: {np.std(scores):.4f}")
+    
+    anomalies = scores > threshold
+    anomaly_percentage = (anomalies.sum() / len(scores)) * 100
+    logging.info(f"Threshold: {threshold:.4f}")
+    logging.info(f"Detected anomalies: {anomaly_percentage:.2f}%")
+    
+    if anomaly_percentage > 0:
+        logging.info(f"Anomaly scores above threshold: {scores[anomalies]}")
+    
+    return anomaly_percentage
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run inference based on baseline threshold on saved autoencoder models.")
-    parser.add_argument("inference_data_dir", help="Path to the directory containing scaled inference .pkl files.")
-    parser.add_argument("--model_paths", nargs='+', required=True, help="List of paths to saved model files for each fold.")
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size for inference.")
-    parser.add_argument("--hidden_dims", nargs='+', type=int, default=[2], help="List of hidden layer sizes used in model.")
-    parser.add_argument("--bottleneck_dim", type=int, default=1, help="Size of the bottleneck layer used in model.")
-    parser.add_argument("--activation", choices=["sigmoid", "relu"], default="sigmoid", help="Activation function to use.")
-    parser.add_argument("--device", default="cpu", help="Device to run inference on (e.g., 'cpu' or 'cuda').")
+    parser = argparse.ArgumentParser(description="Run inference with trained autoencoder model.")
+    parser.add_argument("inference_data_dir", help="Directory containing inference data")
+    parser.add_argument(
+        "--model_paths",
+        nargs="+",
+        required=True,
+        help="Paths to the trained model files"
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=64,
+        help="Batch size for inference"
+    )
+    parser.add_argument(
+        "--hidden_dims",
+        nargs="+",
+        type=int,
+        default=[64, 32, 16],
+        help="Hidden layer dimensions"
+    )
+    parser.add_argument(
+        "--bottleneck_dim",
+        type=int,
+        default=8,
+        help="Bottleneck layer dimension"
+    )
+    parser.add_argument(
+        "--activation",
+        choices=["sigmoid", "relu"],
+        default="relu",
+        help="Activation function"
+    )
+    parser.add_argument(
+        "--dropout_prob",
+        type=float,
+        default=0.2,
+        help="Dropout probability"
+    )
+    parser.add_argument(
+        "--device",
+        default="cuda" if torch.cuda.is_available() else "cpu",
+        help="Device to use for inference"
+    )
+    
     args = parser.parse_args()
 
     activation_fn = nn.Sigmoid if args.activation == "sigmoid" else nn.ReLU
@@ -119,14 +187,9 @@ if __name__ == "__main__":
             )
 
             # Save scores for each model and log results
-            for i, scores in enumerate(all_scores):
-                output_path = os.path.join(args.inference_data_dir, f"{pkl_file}_fold{i+1}_scores.npy")
-                np.save(output_path, scores)
-                print(f"Anomaly scores for {pkl_file} model fold {i+1} saved to {output_path}")
-                logging.info(f"Anomaly scores for {pkl_file} model fold {i+1} saved to {output_path}")
-
-                # Calculate anomaly percentage
-                num_anomalous = sum(1 for _, is_anomalous in scores if is_anomalous)
-                anomaly_percentage = (num_anomalous / len(scores)) * 100
-                print(f"Baseline threshold: {81.71176}. Detected anomalies: {anomaly_percentage:.2f}%")
-                logging.info(f"Baseline threshold: {81.71176}. Detected anomalies: {anomaly_percentage:.2f}%")
+            for model_idx, (model_path, scores) in enumerate(zip(args.model_paths, all_scores), 1):
+                scores_array = np.array(scores)  # Convert to numpy array
+                output_file = os.path.join(args.inference_data_dir, f"{os.path.basename(pkl_file)}_fold{model_idx}_scores.npy")
+                np.save(output_file, scores_array)
+                logging.info(f"Anomaly scores for {os.path.basename(pkl_file)} model fold {model_idx} saved to {output_file}")
+                process_anomaly_scores(scores_array, 81.71176, pkl_file)
