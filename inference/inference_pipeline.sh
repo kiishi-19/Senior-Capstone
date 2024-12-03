@@ -6,16 +6,16 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-# Set project root directory, update this 
+# Set project root directory (update this if needed)
 PROJECT_ROOT="/home/ubuntu/GHIDS2/Senior-Capstone"
 
 # Get the SCAP files directory from the first argument
 SCAP_FILES_DIR="$1"
 
 # Create necessary directories
-mkdir -p "$PROJECT_ROOT/output/inference_results"
+mkdir -p "$PROJECT_ROOT/output/inference_results/scaled_features"
 
-# Process SCAP files
+# Step 1: Process SCAP files
 echo "Step 1: Processing SCAP files from $SCAP_FILES_DIR..."
 uv run inference/inference_process_scapfiles.py \
     "$SCAP_FILES_DIR" \
@@ -23,14 +23,24 @@ uv run inference/inference_process_scapfiles.py \
     "$PROJECT_ROOT/output/features/known_arguments.pkl" \
     --output_dir "$PROJECT_ROOT/output/inference_results"
 
-# Prepare dataset for inference
+if [ $? -ne 0 ]; then
+    echo "Error: SCAP file processing failed." >&2
+    exit 1
+fi
+
+# Step 2: Prepare dataset for inference
 echo "Step 2: Preparing dataset for inference..."
 uv run inference/inference_prepare_dataset.py \
     "$PROJECT_ROOT/output/inference_results" \
     --scaler_file "$PROJECT_ROOT/output/scaler.pkl" \
     --output_dir "$PROJECT_ROOT/output/inference_results/scaled_features"
 
-# Run inference
+if [ $? -ne 0 ]; then
+    echo "Error: Dataset preparation failed." >&2
+    exit 1
+fi
+
+# Step 3: Run inference
 echo "Step 3: Running inference..."
 uv run inference/inference_model.py \
     "$PROJECT_ROOT/output/inference_results/scaled_features" \
@@ -45,9 +55,14 @@ uv run inference/inference_model.py \
     --dropout_prob 0.2 \
     --device cuda
 
-# Check if inference results are generated
+if [ $? -ne 0 ]; then
+    echo "Error: Inference failed." >&2
+    exit 1
+fi
+
+# Step 4: Verify inference results
 echo "Step 4: Verifying inference results..."
-if [ "$(ls -A "$PROJECT_ROOT/output/inference_results")" ]; then
+if [ "$(ls -A "$PROJECT_ROOT/output/inference_results/scaled_features")" ]; then
     echo "Inference pipeline completed successfully!"
 else
     echo "Error: Inference results directory is empty. Inference pipeline failed." >&2

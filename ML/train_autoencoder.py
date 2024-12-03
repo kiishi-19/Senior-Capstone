@@ -9,7 +9,10 @@ import pandas as pd
 from sklearn.model_selection import KFold
 import logging
 import gc
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from torch.utils.tensorboard import SummaryWriter
 
+# Check GPU availability
 print(torch.cuda.is_available())  # Should return True if a GPU is available
 
 # Configure logging
@@ -73,15 +76,17 @@ class Autoencoder(pl.LightningModule):
 
         # Log reconstruction errors for debugging
         reconstruction_error = torch.mean((reconstructed - x) ** 2, dim=1).detach().cpu().numpy()
+        self.logger.experiment.add_histogram('Reconstruction Error', reconstruction_error, global_step=self.global_step)
         logging.info(f"Reconstruction error at batch {batch_idx}: {reconstruction_error}")
 
         self.log('val_loss', val_loss, prog_bar=True, on_step=False, on_epoch=True)
         return val_loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.learning_rate)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.trainer.lr_find.suggestion())
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
         return [optimizer], [scheduler]
+
 
 class ScaledFeaturesDataset(Dataset):
     def __init__(self, pkl_file, feature_names):
@@ -144,13 +149,17 @@ def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoe
             learning_rate=learning_rate
         )
 
-        # Trainer
+        # Trainer with Early Stopping and Learning Rate Finder
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, mode='min')
+        logger = pl.loggers.TensorBoardLogger("logs", name=f"fold_{fold}")
+
         trainer = pl.Trainer(
             max_epochs=max_epochs,
             devices=1 if torch.cuda.is_available() else None,
             accelerator='gpu' if torch.cuda.is_available() else 'cpu',
             callbacks=[
-                pl.callbacks.ModelCheckpoint(
+                early_stopping,
+                ModelCheckpoint(
                     dirpath=f'checkpoints/fold_{fold}/',
                     filename='best_model',
                     save_top_k=1,
@@ -158,8 +167,12 @@ def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoe
                     mode='min'
                 )
             ],
-            logger=False  # Disable logging if not needed
+            logger=logger,
+            auto_lr_find=True
         )
+
+        # Find optimal learning rate
+        trainer.tune(model, train_loader, val_loader)
 
         # Train model
         trainer.fit(model, train_loader, val_loader)
@@ -201,7 +214,6 @@ if __name__ == "__main__":
     parser.add_argument("--n_splits", type=int, default=4, help="Number of folds for cross-validation.")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training.")
     parser.add_argument("--dropout_prob", type=float, default=0.2, help="Dropout probability for regularization.")
-    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for optimizer.")
 
     args = parser.parse_args()
 
@@ -217,6 +229,6 @@ if __name__ == "__main__":
         activation_fn=activation_fn,
         n_splits=args.n_splits,
         batch_size=args.batch_size,
-        dropout_prob=args.dropout_prob,
-        learning_rate=args.learning_rate
+        dropout_prob=args.dropout_prob
     )
+

@@ -12,7 +12,10 @@ ALLOWED_FEATURES = [
     'num_nodes', 'num_edges', 'avg_degree', 'graph_density', 
     'num_connected_components', 'clustering_coefficient',
     'diameter', 'unseen_syscall_influence', 
-    'unseen_argument_influence', 'frequency_increase'
+    'unseen_argument_influence', 'frequency_increase',
+    'avg_in_degree', 'avg_out_degree', 'sequence_entropy',
+    'mean_inter_arrival_time', 'std_inter_arrival_time', 
+    'transition_entropy'
 ]
 
 def ensure_features(chunk):

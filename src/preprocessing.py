@@ -2,6 +2,11 @@ import re
 import subprocess
 import pandas as pd
 from pathlib import Path
+import logging
+import shutil
+
+# Configure logging
+logging.basicConfig(filename='preprocessing.log', level=logging.INFO)
 
 # Global sets to maintain known syscalls and arguments
 KNOWN_SYSCALLS = set()
@@ -62,16 +67,21 @@ def normalize_arguments(args_str):
     
     return arg_tokens
 
-def extract_syscalls(scap_file):
+def extract_syscalls(scap_file, window_duration='1s'):
     """
-    Extract syscalls from a .scap file and group them into 1-second windows.
+    Extract syscalls from a .scap file and group them into time windows.
     
     Args:
         scap_file (str or Path): Path to the .scap file
+        window_duration (str): Duration of time windows (e.g., '1s', '2s')
         
     Returns:
-        pd.DataFrame: DataFrame with columns [time_window, syscall, arguments]
+        pd.DataFrame: DataFrame with columns [time_window, timestamp, syscall, arguments]
     """
+    # Ensure sysdig is installed
+    if not shutil.which("sysdig"):
+        raise EnvironmentError("Sysdig is not installed or not found in PATH.")
+    
     cmd = [
         'sysdig',
         '-r', str(scap_file),
@@ -79,6 +89,7 @@ def extract_syscalls(scap_file):
     ]
     
     try:
+        logging.info(f"Processing file: {scap_file}")
         output = subprocess.check_output(cmd).decode('utf-8', errors='replace')
         lines = output.strip().split('\n')
         data = [line.split(',', 2) for line in lines if line.count(',') >= 2]
@@ -93,17 +104,29 @@ def extract_syscalls(scap_file):
         # Update known syscalls set
         update_known_syscalls(df['syscall'].unique())
         
-        # Create time windows of 1 second
-        df['time_window'] = df['timestamp'].dt.floor('1s')
+        # Filter invalid rows
+        if df.empty:
+            logging.warning(f"No data extracted from {scap_file}")
+            return pd.DataFrame(columns=['time_window', 'timestamp', 'syscall', 'arguments'])
+
+        df = df.dropna(subset=['syscall', 'timestamp'])
+        
+        # Create time windows
+        df['time_window'] = df['timestamp'].dt.floor(window_duration)
         
         # Group by time window and aggregate
         grouped_df = df.groupby('time_window').agg({
+            'timestamp': list,  # Preserve timestamps for inter-arrival times
             'syscall': list,
             'arguments': list
         }).reset_index()
         
-        return grouped_df
+        # Add flow-level metadata
+        grouped_df['num_syscalls'] = grouped_df['syscall'].apply(len)
+        grouped_df['num_unique_arguments'] = grouped_df['arguments'].apply(lambda x: len(set(x)))
         
+        return grouped_df
+
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e.output}")
-        return pd.DataFrame(columns=['time_window', 'syscall', 'arguments'])
+        logging.error(f"Sysdig error on file {scap_file}: {e.output}")
+        return pd.DataFrame(columns=['time_window', 'timestamp', 'syscall', 'arguments'])

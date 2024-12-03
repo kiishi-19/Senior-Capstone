@@ -37,7 +37,7 @@ Finally, train the autoencoder model with the following command:
     --n_splits 4 \
     --batch_size 64 \
     --dropout_prob 0.2 \
-    --learning_rate 1e-4`
+    
 
 ### Step 5: Run the Training Pipeline
 

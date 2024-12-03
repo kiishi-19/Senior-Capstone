@@ -28,6 +28,7 @@ def process_scap_file(scap_file, output_dir):
         local_known_arguments = set()
         features_list = []
 
+        # Extract syscalls, arguments, and timestamps
         grouped_df = extract_syscalls(scap_file)
 
         if grouped_df.empty:
@@ -44,28 +45,39 @@ def process_scap_file(scap_file, output_dir):
         for _, row in grouped_df.iterrows():
             syscalls = row['syscall']
             arguments = row['arguments']
-            window_graph = ssg.create_window_graph(syscalls, arguments)
+            timestamps = row['timestamp']  # Extract timestamps for this window
+
+            # Pass syscalls, arguments, and timestamps to the SSG
+            window_graph = ssg.create_window_graph(syscalls, arguments, timestamps)
             ssg.graph = window_graph
+
+            # Extract features from the SSG
             features = ssg.extract_features()
 
+            # Convert features to a DataFrame
             features_df = pd.DataFrame([features])
 
+            # Expand 'syscall_node_counts' into columns
             if 'syscall_node_counts' in features_df.columns:
                 syscall_counts_df = pd.json_normalize(features_df['syscall_node_counts']).fillna(0)
                 features_df = features_df.drop('syscall_node_counts', axis=1)
                 features_df = pd.concat([features_df, syscall_counts_df], axis=1)
 
+            # Expand 'argument_node_counts' into columns
             if 'argument_node_counts' in features_df.columns:
                 argument_counts_df = pd.json_normalize(features_df['argument_node_counts']).fillna(0)
                 features_df = features_df.drop('argument_node_counts', axis=1)
                 features_df = pd.concat([features_df, argument_counts_df], axis=1)
 
+            # Fill NaN values and add to features list
             features_df = features_df.fillna(0).astype('float64')
             features_list.append(features_df)
 
+            # Cleanup
             del features_df
             gc.collect()
 
+        # Save features to CSV
         if features_list:
             file_features_df = pd.concat(features_list, ignore_index=True)
             output_filename = f"{scap_file.stem}_features.csv"
@@ -76,6 +88,7 @@ def process_scap_file(scap_file, output_dir):
             del file_features_df
             gc.collect()
 
+        # Cleanup
         del grouped_df
         del ssg
         gc.collect()

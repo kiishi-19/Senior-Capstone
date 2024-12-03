@@ -1,5 +1,3 @@
-# inference_process_scapfiles.py
-
 import os
 import sys
 from pathlib import Path
@@ -35,7 +33,7 @@ def process_scap_file_inference(scap_file, output_dir):
     try:
         features_list = []
 
-        # Extract syscalls and arguments from scap file
+        # Extract syscalls, arguments, and timestamps from scap file
         grouped_df = extract_syscalls(scap_file)
 
         if grouped_df.empty:
@@ -48,9 +46,10 @@ def process_scap_file_inference(scap_file, output_dir):
         for _, row in grouped_df.iterrows():
             syscalls = row['syscall']
             arguments = row['arguments']
+            timestamps = row['timestamp']  # Extract timestamps for inter-arrival time
 
             # Generate graph and extract features
-            window_graph = ssg.create_window_graph(syscalls, arguments)
+            window_graph = ssg.create_window_graph(syscalls, arguments, timestamps)
             ssg.graph = window_graph
             features = ssg.extract_features()
 

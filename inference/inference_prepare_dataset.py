@@ -14,7 +14,10 @@ ALLOWED_FEATURES = [
     'num_nodes', 'num_edges', 'avg_degree', 'graph_density', 
     'num_connected_components', 'clustering_coefficient',
     'diameter', 'unseen_syscall_influence', 
-    'unseen_argument_influence', 'frequency_increase'
+    'unseen_argument_influence', 'frequency_increase',
+    'avg_in_degree', 'avg_out_degree', 'sequence_entropy',
+    'mean_inter_arrival_time', 'std_inter_arrival_time', 
+    'transition_entropy'
 ]
 
 def ensure_features(chunk):
@@ -74,8 +77,12 @@ def prepare_inference_data(features_dir, scaler_file='output/scaler.pkl', output
         return
     
     # Load the pre-trained MinMaxScaler
-    scaler = joblib.load(scaler_file)
-    logging.info("Loaded pre-trained MinMaxScaler.")
+    try:
+        scaler = joblib.load(scaler_file)
+        logging.info("Loaded pre-trained MinMaxScaler.")
+    except Exception as e:
+        logging.error(f"Failed to load scaler from {scaler_file}: {e}")
+        return
 
     # Set feature names as allowed features
     feature_names = ALLOWED_FEATURES
