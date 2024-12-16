@@ -1,3 +1,5 @@
+# inference_process_scap_files.py
+
 import os
 import sys
 from pathlib import Path
@@ -40,7 +42,8 @@ def process_scap_file_inference(scap_file, output_dir):
             logging.warning(f"No data extracted from {scap_file}")
             return []
 
-        ssg = SystemStateGraph()
+        # Initialize SystemStateGraph with the known sets
+        ssg = SystemStateGraph(KNOWN_SYSCALLS, KNOWN_ARGUMENTS)
 
         # Process each time window
         for _, row in grouped_df.iterrows():

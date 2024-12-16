@@ -7,8 +7,11 @@ from scipy.stats import entropy
 from src.preprocessing import KNOWN_SYSCALLS, KNOWN_ARGUMENTS
 
 class SystemStateGraph:
-    def __init__(self):
+    def __init__(self, known_syscalls, known_arguments):
         self.graph = nx.DiGraph()
+        self.known_syscalls = set(known_syscalls)
+        self.known_arguments = set(known_arguments)
+
 
     def create_window_graph(self, syscalls: List[str], arguments: List[List[str]], timestamps: List[float]) -> nx.DiGraph:
         """Create a graph for a single time window."""
@@ -101,8 +104,8 @@ class SystemStateGraph:
             features['diameter'] = 0
 
         # Anomaly Detection Features
-        syscall_names = set(syscall_counts.keys())
-        unseen_syscalls = syscall_names - KNOWN_SYSCALLS
+        syscall_name_set = set(syscall_counts.keys())
+        unseen_syscalls = syscall_name_set - self.known_syscalls
 
         # Calculate influence of unseen syscalls
         total_syscalls = sum(syscall_counts.values())
@@ -114,7 +117,7 @@ class SystemStateGraph:
 
         # Calculate influence of unseen arguments
         arg_tokens = set(arg_counts.keys())
-        unseen_args = arg_tokens - KNOWN_ARGUMENTS
+        unseen_args = arg_tokens - self.known_arguments
 
         total_args = sum(arg_counts.values())
         unseen_args_count = sum(arg_counts[a] for a in unseen_args)
@@ -140,22 +143,45 @@ class SystemStateGraph:
             features['avg_in_degree'] = sum(dict(self.graph.in_degree()).values()) / features['num_nodes']
             features['avg_out_degree'] = sum(dict(self.graph.out_degree()).values()) / features['num_nodes']
 
-        # Sequence Entropy
-        features['sequence_entropy'] = entropy(list(syscall_counts.values())) if syscall_counts else 0.0
-
         # Inter-Arrival Times
         timestamps = [attr['timestamp'] for _, attr in self.graph.nodes(data=True) if 'timestamp' in attr]
-        if timestamps:
-            inter_arrival_times = np.diff(sorted(timestamps))
-            features['mean_inter_arrival_time'] = np.mean(inter_arrival_times)
-            features['std_inter_arrival_time'] = np.std(inter_arrival_times)
+        if len(timestamps) >= 2:  # Check if there are at least two timestamps
+            # Sort the timestamps
+            sorted_timestamps = sorted(timestamps)
+            # Convert timestamps to Unix time (seconds since epoch)
+            timestamp_values = np.array([ts.timestamp() for ts in sorted_timestamps])
+            # Compute inter-arrival times
+            inter_arrival_times = np.diff(timestamp_values)
+            if inter_arrival_times.size > 0:  # Check if there are inter-arrival times
+                features['mean_inter_arrival_time'] = np.mean(inter_arrival_times)
+                features['std_inter_arrival_time'] = np.std(inter_arrival_times, ddof=1)  # Sample standard deviation
+            else:
+                features['mean_inter_arrival_time'] = np.nan
+                features['std_inter_arrival_time'] = np.nan
         else:
-            features['mean_inter_arrival_time'] = 0.0
-            features['std_inter_arrival_time'] = 0.0
+            features['mean_inter_arrival_time'] = np.nan
+            features['std_inter_arrival_time'] = np.nan
+
+        # Sequence Entropy
+        if syscall_counts:
+            count_values = list(syscall_counts.values())
+            if sum(count_values) > 0:  # Check if there are counts to compute entropy
+                features['sequence_entropy'] = entropy(count_values)
+            else:
+                features['sequence_entropy'] = 0.0
+        else:
+            features['sequence_entropy'] = 0.0
 
         # Transition Entropy
         syscall_names = [n.split('_', 1)[1] for n in syscall_nodes]
-        transitions = Counter(zip(syscall_names[:-1], syscall_names[1:]))
-        features['transition_entropy'] = entropy(list(transitions.values())) if transitions else 0.0
+        if len(syscall_names) > 1:  # Check if there are enough syscall names for transitions
+            transitions = Counter(zip(syscall_names[:-1], syscall_names[1:]))
+            transition_values = list(transitions.values())
+            if sum(transition_values) > 0:  # Check if there are transition counts to compute entropy
+                features['transition_entropy'] = entropy(transition_values)
+            else:
+                features['transition_entropy'] = 0.0
+        else:
+            features['transition_entropy'] = 0.0
 
         return features

@@ -63,7 +63,7 @@ def normalize_arguments(args_str):
     arg_tokens = tokenize_arguments(args_str)
     
     # Update known arguments set
-    update_known_arguments(arg_tokens)
+    update_known_arguments(tuple(arg_tokens))
     
     return arg_tokens
 
@@ -123,7 +123,7 @@ def extract_syscalls(scap_file, window_duration='1s'):
         
         # Add flow-level metadata
         grouped_df['num_syscalls'] = grouped_df['syscall'].apply(len)
-        grouped_df['num_unique_arguments'] = grouped_df['arguments'].apply(lambda x: len(set(x)))
+        grouped_df['num_unique_arguments'] = grouped_df['arguments'].apply(lambda x: len(set(item for sublist in x for item in sublist)))
         
         return grouped_df
 

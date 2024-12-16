@@ -28,5 +28,5 @@ Thumbs.db
 checkpoints/
 *.ckpt
 
-
+*.json
 

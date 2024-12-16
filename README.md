@@ -45,14 +45,20 @@ You can also run the entire training pipeline using the following script:
 
 `./ML/train_pipeline.sh`
 
+in pipeline Please leave as one core for now, to Ensure KNOWN_SYSCALLS and KNOWN_ARGUMENTS are correctly populated. USI and UAI
+
 ## Inference Process
 
 To run inference on new SCAP files, use the following command:
+Go to `./inference/inference_pipeline.sh`, Update the PROJECT_ROOT to match your root
+If you use CPU,  --device cuda to  --device cpu
 
 `./inference/inference_pipeline.sh <path_to_scap_files>`
 
 Replace `<path_to_scap_files>` with the actual path to your SCAP files.
 
+##Build Dashboard
+`./dashboard/build_dashboard.sh`
 ## Notes
 
 - Ensure that all required dependencies are installed and configured properly before running the commands.

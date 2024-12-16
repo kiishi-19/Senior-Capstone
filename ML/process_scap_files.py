@@ -22,10 +22,8 @@ sys.path.insert(0, str(project_root))
 from src.preprocessing import extract_syscalls, KNOWN_SYSCALLS, KNOWN_ARGUMENTS
 from src.ssg import SystemStateGraph
 
-def process_scap_file(scap_file, output_dir):
+def process_scap_file(scap_file, output_dir, known_syscalls, known_arguments):
     try:
-        local_known_syscalls = set()
-        local_known_arguments = set()
         features_list = []
 
         # Extract syscalls, arguments, and timestamps
@@ -33,14 +31,9 @@ def process_scap_file(scap_file, output_dir):
 
         if grouped_df.empty:
             logging.warning(f"No data extracted from {scap_file}")
-            return [], local_known_syscalls, local_known_arguments
+            return []
 
-        local_known_syscalls.update(KNOWN_SYSCALLS)
-        local_known_arguments.update(KNOWN_ARGUMENTS)
-        KNOWN_SYSCALLS.clear()
-        KNOWN_ARGUMENTS.clear()
-
-        ssg = SystemStateGraph()
+        ssg = SystemStateGraph(known_syscalls, known_arguments)
 
         for _, row in grouped_df.iterrows():
             syscalls = row['syscall']
@@ -93,11 +86,11 @@ def process_scap_file(scap_file, output_dir):
         del ssg
         gc.collect()
 
-        return [output_file], local_known_syscalls, local_known_arguments
+        return [output_file]
 
     except Exception as e:
         logging.error(f"Error processing {scap_file}: {e}")
-        return [], set(), set()
+        return []
 
 def process_scap_directory(scap_dir, output_dir='output', num_cores=None):
     scap_dir = Path(scap_dir)
@@ -119,25 +112,36 @@ def process_scap_directory(scap_dir, output_dir='output', num_cores=None):
     cores_to_use = num_cores if num_cores is not None else mp.cpu_count()
     logging.info(f"Using {cores_to_use} cores for multiprocessing.")
 
-    with mp.Pool(processes=cores_to_use) as pool:
-        results = list(tqdm(pool.starmap(process_scap_file, 
-                          [(f, output_dir) for f in scap_files]), 
-                          total=len(scap_files), 
-                          desc="Processing files"))
-
-    all_output_files = []
+    # First pass to collect known syscalls and arguments
     all_known_syscalls = set()
     all_known_arguments = set()
 
-    for output_files, known_syscalls, known_arguments in results:
-        all_output_files.extend(output_files)
-        all_known_syscalls.update(known_syscalls)
-        all_known_arguments.update(known_arguments)
+    for scap_file in scap_files:
+        grouped_df = extract_syscalls(scap_file)
+        all_known_syscalls.update(KNOWN_SYSCALLS)
+        all_known_arguments.update(KNOWN_ARGUMENTS)
+        KNOWN_SYSCALLS.clear()
+        KNOWN_ARGUMENTS.clear()
 
+    # Save known syscalls and arguments
     joblib.dump(all_known_syscalls, Path(output_dir) / 'known_syscalls.pkl')
     joblib.dump(all_known_arguments, Path(output_dir) / 'known_arguments.pkl')
     logging.info("Known syscalls and arguments have been saved.")
+
+    # Now, process files with multiprocessing, passing the known sets
+    with mp.Pool(processes=cores_to_use) as pool:
+        results = list(tqdm(pool.starmap(process_scap_file, 
+                        [(f, output_dir, list(all_known_syscalls), list(all_known_arguments)) for f in scap_files]), 
+                        total=len(scap_files), 
+                        desc="Processing files"))
+
+
+    all_output_files = []
+    for output_files in results:
+        all_output_files.extend(output_files)
+
     logging.info("Feature extraction completed.")
+
 
 if __name__ == "__main__":
     import argparse

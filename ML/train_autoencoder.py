@@ -12,6 +12,10 @@ import gc
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.tensorboard import SummaryWriter
 
+# Import the Tuner class
+from pytorch_lightning.tuner import Tuner
+
+
 # Check GPU availability
 print(torch.cuda.is_available())  # Should return True if a GPU is available
 
@@ -20,11 +24,13 @@ os.makedirs('output', exist_ok=True)
 logging.basicConfig(filename='output/train_autoencoder.log', level=logging.INFO,
                     format='%(asctime)s %(message)s')
 
+
 class Autoencoder(pl.LightningModule):
     def __init__(self, input_dim, hidden_dims=[2], bottleneck_dim=1, activation_fn=nn.Sigmoid,
                  dropout_prob=0.2, learning_rate=1e-4):
         super(Autoencoder, self).__init__()
         self.save_hyperparameters()
+        self.learning_rate = learning_rate
 
         # Encoder
         encoder_layers = []
@@ -73,17 +79,11 @@ class Autoencoder(pl.LightningModule):
         x = batch
         reconstructed = self.forward(x)
         val_loss = self.criterion(reconstructed, x)
-
-        # Log reconstruction errors for debugging
-        reconstruction_error = torch.mean((reconstructed - x) ** 2, dim=1).detach().cpu().numpy()
-        self.logger.experiment.add_histogram('Reconstruction Error', reconstruction_error, global_step=self.global_step)
-        logging.info(f"Reconstruction error at batch {batch_idx}: {reconstruction_error}")
-
         self.log('val_loss', val_loss, prog_bar=True, on_step=False, on_epoch=True)
         return val_loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.trainer.lr_find.suggestion())
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
         return [optimizer], [scheduler]
 
@@ -103,6 +103,7 @@ class ScaledFeaturesDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.data.iloc[idx][self.feature_names].values.astype(np.float32)
+
 
 def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoencoder_model.pth',
                                        max_epochs=120, hidden_dims=[2], bottleneck_dim=1, activation_fn=nn.Sigmoid,
@@ -149,7 +150,7 @@ def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoe
             learning_rate=learning_rate
         )
 
-        # Trainer with Early Stopping and Learning Rate Finder
+        # Trainer with Early Stopping
         early_stopping = EarlyStopping(monitor='val_loss', patience=10, mode='min')
         logger = pl.loggers.TensorBoardLogger("logs", name=f"fold_{fold}")
 
@@ -167,12 +168,24 @@ def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoe
                     mode='min'
                 )
             ],
-            logger=logger,
-            auto_lr_find=True
+            logger=logger
         )
 
-        # Find optimal learning rate
-        trainer.tune(model, train_loader, val_loader)
+        # Instantiate the Tuner with the Trainer
+        tuner = Tuner(trainer)
+
+        # Find the optimal learning rate
+        lr_finder = tuner.lr_find(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+
+        # Get the suggested learning rate
+        new_lr = lr_finder.suggestion()
+
+        # Update the model's learning rate
+        model.learning_rate = new_lr
+
+        # Optionally, log or save the learning rate finder plot
+        fig = lr_finder.plot(suggest=True)
+        fig.savefig(f'output/lr_finder_fold_{fold}.png')
 
         # Train model
         trainer.fit(model, train_loader, val_loader)
@@ -203,6 +216,7 @@ def train_autoencoder_cross_validation(pkl_file, model_output_file='output/autoe
     logging.info(f"Average validation loss across {n_splits} folds: {avg_val_loss:.6f}")
     print(f"\nAverage validation loss across {n_splits} folds: {avg_val_loss:.6f}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train autoencoder model with cross-validation.")
     parser.add_argument("pkl_file", help="Path to the pickle file containing scaled feature data.")
@@ -231,4 +245,3 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         dropout_prob=args.dropout_prob
     )
-
